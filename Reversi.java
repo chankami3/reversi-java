@@ -1,4 +1,5 @@
 import java.awt.*;
+import java.awt.event.*;
 import javax.swing.*;
 
 class Stone {
@@ -81,6 +82,39 @@ class Board {
             }
         }
     }
+
+    void setStone(int x, int y, int s) {
+        stone[x][y].setObverse(s);
+    }
+
+    /* すべてのマス目に配置されているか判定 */
+    boolean checkPlaced() {
+        boolean flag = true;
+        for(int i = 0; i < 8; i++) {
+            for(int j = 0; j < 8; j++) {
+                if(stone[i][j].getObverse() == 0) { 
+                    flag = false;
+                    break;
+                }
+            if(!flag) { break; }
+            }
+        }    
+        return flag;
+    }
+
+    /* 石を数える */    
+    int count() {
+        int black = 0;
+        int white = 0;
+        for(int i = 0; i < 8; i++) {
+            for(int j = 0; j < 8; j++) {
+                if(stone[i][j].getObverse() == 1) { black++; }
+                else if(stone[i][j].getObverse() == 2) { white++; }
+            }
+        }
+        if(black+white == 64) { return black; }
+        else { return -1; } /* Error:通常は入らない */
+    }
 }
 
 
@@ -90,6 +124,7 @@ public class Reversi extends JPanel{
 
     public Reversi() {
         setPreferredSize(new Dimension(UNIT_SIZE*10, UNIT_SIZE*10));
+        addMouseListener(new MouseProc());
     }
 
     public void paintComponent(Graphics g) {
@@ -104,5 +139,50 @@ public class Reversi extends JPanel{
         f.setResizable(false);
         f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         f.setVisible(true);
+    }
+
+    void MessageDialog(int black, int white) {
+        String str;
+        if(black < 0) {
+            str = "ERROR";
+        }
+        else if(black > white) {
+            str = "[黒:" + black + ",白:" + white + "]で黒の勝ち";
+        }
+        else if(black < white) {
+            str = "[黒:" + black + ",白:" + white + "]で白の勝ち";
+        }
+        else {
+            str = "[黒:" + black + ",白:" + white + "]で引き分け";
+        }
+        JOptionPane.showMessageDialog(this, str, "ゲーム終了", JOptionPane.INFORMATION_MESSAGE);
+        System.exit(0);
+    }
+
+
+    class MouseProc extends MouseAdapter {
+        public void mouseClicked(MouseEvent me) {
+            /* マス目を決定 */
+            Point point = me.getPoint();
+            int x = point.x/UNIT_SIZE - 1;
+            int y = point.y/UNIT_SIZE - 1;
+            /* 色を決定 */
+            int btn = me.getButton();
+            int s = -1;
+            if(btn == MouseEvent.BUTTON1) { s = 1; }
+            else if(btn == MouseEvent.BUTTON3) { s = 2; }
+            /* 盤面内か判定 */
+            if((0 <= x && x < 8) && (0 <= y && y < 8) && s != -1) {
+                /* マス目に石を配置 */
+                board.setStone(x, y, s);
+                repaint();
+            }
+            /* 終了判定 */
+            if(board.checkPlaced()) {
+                int black = board.count();
+                int white = 64 - black;
+                MessageDialog(black, white);
+            }
+        }
     }
 }
