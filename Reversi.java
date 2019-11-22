@@ -209,11 +209,11 @@ class Board {
             ArrayList<Integer> line = new ArrayList<Integer>();
             line = getLine(x, y, direction[d]);
             int n = 0;
-            int cx = x + direction[d].x;
-            int cy = y + direction[d].y;
-            while(n < line.size() && line.get(n) != s) {
-                n++;
-                if(1 <= n && n < line.size()) {
+            while(n < line.size() && line.get(n) != s) { n++; }
+            if(1 <= n && n < line.size()) {
+                int cx = x + direction[d].x;
+                int cy = y + direction[d].y;
+                for(int i = 0; i < n; i++) {
                     stone[cx][cy].doReverse();
                     cx += direction[d].x;
                     cy += direction[d].y;
@@ -227,14 +227,21 @@ class Board {
 public class Reversi extends JPanel{
     public final static int UNIT_SIZE = 80;
     private Board board = new Board();
+    private int turn;
 
     public Reversi() {
         setPreferredSize(new Dimension(UNIT_SIZE*10, UNIT_SIZE*10));
         addMouseListener(new MouseProc());
+        turn = 1;
     }
 
     public void paintComponent(Graphics g) {
         board.paint(g, UNIT_SIZE);
+        g.setColor(Color.WHITE);
+        if(turn == 1) { g.drawString("黒の番です", 30, 30); }
+        else { g.drawString("白の番です", 30, 30); }
+        String str = "[黒:" + board.countStone(1) + ", 白:" + board.countStone(2) + "]";
+        g.drawString(str, 30, 770);
     }
 
     public static void main(String[] args) {
@@ -264,6 +271,21 @@ public class Reversi extends JPanel{
         System.exit(0);
     }
 
+    void MessageDialog(String str) {
+        JOptionPane.showMessageDialog(this, str, "情報", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    void changeTurn() {
+        if(turn == 1) {
+            if(board.num_grid_white == 0) { MessageDialog("あなたはパスです"); }
+            else { turn = 2; }
+        }
+        else {
+            if(board.num_grid_black == 0) { MessageDialog("あなたはパスです"); }
+            else { turn = 1; }
+        }
+    }
+
 
     class MouseProc extends MouseAdapter {
         public void mouseClicked(MouseEvent me) {
@@ -276,8 +298,8 @@ public class Reversi extends JPanel{
                 /* 色を決定 */
                 int btn = me.getButton();
                 int s = -1;
-                if(btn == MouseEvent.BUTTON1 && board.eval_black[y][x] > 0) { s = 1; }
-                else if(btn == MouseEvent.BUTTON3 && board.eval_white[y][x] > 0) { s = 2; }
+                if(btn == MouseEvent.BUTTON1 && board.eval_black[y][x] > 0 && turn == 1) { s = 1; }
+                else if(btn == MouseEvent.BUTTON3 && board.eval_white[y][x] > 0 && turn == 2) { s = 2; }
                 if(s == 1 || s == 2) {
                     /* マス目に石を配置 */
                     board.setStoneAndReverse(y, x, s);
@@ -288,6 +310,10 @@ public class Reversi extends JPanel{
                     /* 終了判定 */
                     if(board.num_grid_black == 0 && board.num_grid_white == 0) {
                         EndMessageDialog();
+                    }
+                    /* 手番を交代 */
+                    else {
+                        changeTurn();
                     }
                 }
             }
