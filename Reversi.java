@@ -1,3 +1,4 @@
+import java.util.*;
 import java.awt.*;
 import java.awt.event.*;
 import javax.swing.*;
@@ -34,6 +35,11 @@ class Stone {
 
 class Board {
     private Stone[][] stone = new Stone[8][8];
+    public int num_grid_black; /* 黒石を配置できるマス目の数 */
+    public int num_grid_white; /* 白石を配置できるマス目の数 */
+    private Point[] direction = new Point[8];
+    public int[][] eval_black = new int[8][8];
+    public int[][] eval_white = new int[8][8];
 
     Board() {
         /* 盤面の初期化 */
@@ -46,6 +52,15 @@ class Board {
         stone[3][4].setObverse(2);
         stone[4][3].setObverse(2);
         stone[4][4].setObverse(1);
+        /* 方向ベクトルの生成 */
+        direction[0] = new Point(1, 0);
+        direction[1] = new Point(1, 1);
+        direction[2] = new Point(0, 1);
+        direction[3] = new Point(-1, 1);
+        direction[4] = new Point(-1, 0);
+        direction[5] = new Point(-1, -1);
+        direction[6] = new Point(0, -1);
+        direction[7] = new Point(1, -1);
     }
 
     void paint(Graphics g, int unit_size) {
@@ -75,7 +90,7 @@ class Board {
         for(int i = 0; i < 8; i++) {
             for(int j = 0; j < 8; j++) {
                 /* 中心 */
-                Point center = new Point((int)(unit_size*(i+1.5)), (int)(unit_size*(j+1.5)));
+                Point center = new Point((int)(unit_size*(j+1.5)), (int)(unit_size*(i+1.5)));
                 /* 半径 */
                 int radius = (int)(unit_size*0.5*0.8);
                 stone[i][j].paint(g, center, radius);
@@ -83,37 +98,97 @@ class Board {
         }
     }
 
-    void setStone(int x, int y, int s) {
-        stone[x][y].setObverse(s);
+    /* 盤面内か判定 */
+    boolean isOnBoard(int x, int y) {
+        if(x < 0 || 7 < x || y < 0 || 7 < y) { return false; }
+        else { return true; }
     }
 
-    /* すべてのマス目に配置されているか判定 */
-    boolean checkPlaced() {
-        boolean flag = true;
-        for(int i = 0; i < 8; i++) {
-            for(int j = 0; j < 8; j++) {
-                if(stone[i][j].getObverse() == 0) { 
-                    flag = false;
-                    break;
-                }
-            if(!flag) { break; }
-            }
-        }    
-        return flag;
+    /* 盤面(x, y)に石sを配置 */
+    void setStone(int x, int y, int s) {
+        stone[y][x].setObverse(s);
     }
 
     /* 石を数える */    
-    int count() {
-        int black = 0;
-        int white = 0;
+    int countStone(int s) {
+        int cnt = 0;
         for(int i = 0; i < 8; i++) {
             for(int j = 0; j < 8; j++) {
-                if(stone[i][j].getObverse() == 1) { black++; }
-                else if(stone[i][j].getObverse() == 2) { white++; }
+                if(stone[i][j].getObverse() == s) { cnt++; }
             }
         }
-        if(black+white == 64) { return black; }
-        else { return -1; } /* Error:通常は入らない */
+        return cnt;
+    }
+
+    /* 盤面(x, y)から方向dに向かって石を順に取得 */
+    ArrayList<Integer> getLine(int x, int y, Point d) {
+        ArrayList<Integer> line = new ArrayList<Integer>();
+        int cx = x + d.x;
+        int cy = y + d.y;
+        while(isOnBoard(cx, cy) && stone[cx][cy].getObverse() != 0) {
+            line.add(stone[cx][cy].getObverse());
+            cx += d.x;
+            cy += d.y;
+        }
+        return line;
+    }
+
+    /* 盤面(x, y)に石を置いた場合に反転できる石の数を数える */
+    int countReverseStone(int x, int y, int s) {
+        if(stone[x][y].getObverse() != 0) return -1;
+
+        int cnt = 0;
+        for(int d = 0; d < 8; d++) {
+            ArrayList<Integer> line = new ArrayList<Integer>();
+            line = getLine(x, y, direction[d]);
+            int n = 0;
+            while(n < line.size() && line.get(n) != s) { n++; }
+            if(1 <= n && n < line.size()) { cnt += n; }
+        }
+        return cnt;
+    }
+
+    /* 盤面を評価 */
+    void evaluateBoard() {
+        num_grid_black = 0;
+        num_grid_white = 0;
+        for(int i = 0; i < 8; i++) {
+            for(int j = 0; j < 8; j++) {
+                eval_black[i][j] = countReverseStone(i, j, 1);
+                if(eval_black[i][j] > 0) { num_grid_black++; }
+                eval_white[i][j] = countReverseStone(i, j, 2);
+                if(eval_white[i][j] > 0) { num_grid_white++; }
+            }
+        }
+    }
+
+    /* 盤面をコンソールに表示(テスト用) */
+    void printBoard() {
+        System.out.println("Board:");
+        for(int i = 0; i < 8; i++) {
+            for(int j = 0; j < 8; j++) {
+                System.out.printf("%2d ", stone[i][j].getObverse());
+            }
+            System.out.println();
+        }
+    }
+
+    /* 盤面の評価結果をコンソールに表示(テスト用) */
+    void printEval() {
+        System.out.println("Black(1):");
+        for(int i = 0; i < 8; i++) {
+            for(int j = 0; j < 8; j++) {
+                System.out.printf("%2d ", eval_black[i][j]);
+            }
+            System.out.println("");
+        }
+        System.out.println("White(2):");
+        for(int i = 0; i < 8; i++) {
+            for(int j = 0; j < 8; j++) {
+                System.out.printf("%2d ", eval_white[i][j]);
+            }
+            System.out.println();
+        }
     }
 }
 
@@ -141,12 +216,11 @@ public class Reversi extends JPanel{
         f.setVisible(true);
     }
 
-    void MessageDialog(int black, int white) {
+    void EndMessageDialog() {
         String str;
-        if(black < 0) {
-            str = "ERROR";
-        }
-        else if(black > white) {
+        int black = board.countStone(1);
+        int white = board.countStone(2);
+        if(black > white) {
             str = "[黒:" + black + ",白:" + white + "]で黒の勝ち";
         }
         else if(black < white) {
@@ -172,16 +246,17 @@ public class Reversi extends JPanel{
             if(btn == MouseEvent.BUTTON1) { s = 1; }
             else if(btn == MouseEvent.BUTTON3) { s = 2; }
             /* 盤面内か判定 */
-            if((0 <= x && x < 8) && (0 <= y && y < 8) && s != -1) {
+            if(board.isOnBoard(x, y) && s != -1) {
                 /* マス目に石を配置 */
                 board.setStone(x, y, s);
+                board.printBoard();
+                board.evaluateBoard();
+                board.printEval();
                 repaint();
-            }
-            /* 終了判定 */
-            if(board.checkPlaced()) {
-                int black = board.count();
-                int white = 64 - black;
-                MessageDialog(black, white);
+                /* 終了判定 */
+                if(board.num_grid_black == 0 && board.num_grid_white == 0) {
+                    EndMessageDialog();
+                }
             }
         }
     }
