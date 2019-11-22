@@ -12,14 +12,6 @@ class Stone {
         obverse = 0;
     }
 
-    /* 表面の色を設定 */
-    void setObverse(int color) {
-        if(color == black || color == white) { obverse = color; }
-        else { System.out.println("黒か白でなければいけません"); }
-    }
-
-    int getObverse() { return obverse; }
-
     void paint(Graphics g, Point p, int rad) {
         if(obverse == black) {
             g.setColor(Color.black);
@@ -29,6 +21,21 @@ class Stone {
             g.setColor(Color.white);
             g.fillOval(p.x-rad, p.y-rad, rad*2, rad*2);
         }
+    }
+
+    /* 表面の色を設定 */
+    void setObverse(int color) {
+        if(color == black || color == white) { obverse = color; }
+        else { System.out.println("黒か白でなければいけません"); }
+    }
+
+    /* 表面の色を取得 */
+    int getObverse() { return obverse; }
+
+    /* 石を反転 */
+    void doReverse() {
+        if(this.obverse == black) { this.obverse = white; }
+        else if(this.obverse == white) { this.obverse = black; }
     }
 }
 
@@ -61,6 +68,9 @@ class Board {
         direction[5] = new Point(-1, -1);
         direction[6] = new Point(0, -1);
         direction[7] = new Point(1, -1);
+        /* 盤面の初期評価 */
+        evaluateBoard();
+        //printEval();
     }
 
     void paint(Graphics g, int unit_size) {
@@ -106,7 +116,7 @@ class Board {
 
     /* 盤面(x, y)に石sを配置 */
     void setStone(int x, int y, int s) {
-        stone[y][x].setObverse(s);
+        stone[x][y].setObverse(s);
     }
 
     /* 石を数える */    
@@ -136,7 +146,7 @@ class Board {
     /* 盤面(x, y)に石を置いた場合に反転できる石の数を数える */
     int countReverseStone(int x, int y, int s) {
         if(stone[x][y].getObverse() != 0) return -1;
-
+        /* 8方向をチェック */
         int cnt = 0;
         for(int d = 0; d < 8; d++) {
             ArrayList<Integer> line = new ArrayList<Integer>();
@@ -190,6 +200,27 @@ class Board {
             System.out.println();
         }
     }
+
+    /* 盤面(x, y)に石sを配置し該当する石を反転 */
+    void setStoneAndReverse(int x, int y, int s) {
+        setStone(x, y, s);
+        /* 8方向をチェック */
+        for(int d = 0; d < 8; d++) {
+            ArrayList<Integer> line = new ArrayList<Integer>();
+            line = getLine(x, y, direction[d]);
+            int n = 0;
+            int cx = x + direction[d].x;
+            int cy = y + direction[d].y;
+            while(n < line.size() && line.get(n) != s) {
+                n++;
+                if(1 <= n && n < line.size()) {
+                    stone[cx][cy].doReverse();
+                    cx += direction[d].x;
+                    cy += direction[d].y;
+                }
+            }
+        }
+    }
 }
 
 
@@ -240,22 +271,24 @@ public class Reversi extends JPanel{
             Point point = me.getPoint();
             int x = point.x/UNIT_SIZE - 1;
             int y = point.y/UNIT_SIZE - 1;
-            /* 色を決定 */
-            int btn = me.getButton();
-            int s = -1;
-            if(btn == MouseEvent.BUTTON1) { s = 1; }
-            else if(btn == MouseEvent.BUTTON3) { s = 2; }
             /* 盤面内か判定 */
-            if(board.isOnBoard(x, y) && s != -1) {
-                /* マス目に石を配置 */
-                board.setStone(x, y, s);
-                board.printBoard();
-                board.evaluateBoard();
-                board.printEval();
-                repaint();
-                /* 終了判定 */
-                if(board.num_grid_black == 0 && board.num_grid_white == 0) {
-                    EndMessageDialog();
+            if(board.isOnBoard(x, y)) {
+                /* 色を決定 */
+                int btn = me.getButton();
+                int s = -1;
+                if(btn == MouseEvent.BUTTON1 && board.eval_black[y][x] > 0) { s = 1; }
+                else if(btn == MouseEvent.BUTTON3 && board.eval_white[y][x] > 0) { s = 2; }
+                if(s == 1 || s == 2) {
+                    /* マス目に石を配置 */
+                    board.setStoneAndReverse(y, x, s);
+                    //board.printBoard();
+                    board.evaluateBoard();
+                    board.printEval();
+                    repaint();
+                    /* 終了判定 */
+                    if(board.num_grid_black == 0 && board.num_grid_white == 0) {
+                        EndMessageDialog();
+                    }
                 }
             }
         }
