@@ -3,6 +3,62 @@ import java.awt.*;
 import java.awt.event.*;
 import javax.swing.*;
 
+class Player {
+    public final static int type_human = 0;
+    public final static int type_computer = 1;
+    private int color;
+    private int type;
+
+    Player(int c, int t) {
+        if(c == Stone.black || c == Stone.white) { this.color = c; }
+        else {
+            System.out.println("プレイヤーの石は黒か白でなければいけません:" + c);
+            System.exit(0);
+        }
+        if(t == type_human || t == type_computer) { this.type = t; }
+        else {
+            System.out.println("プレイヤーは人間かコンピュータでなければいけません:" + t);
+            System.exit(0);
+        }
+    }
+
+    int getColor() { return color; }
+
+    int getType() { return type; }
+
+    Point tactics(Board bd) {
+        /* 左上優先の戦略 */
+        if(color == Stone.black) {
+            for(int i = 0; i < 8; i++) {
+                for(int j = 0; j < 8; j++) {
+                    if(bd.eval_black[i][j] > 0) {
+                        return (new Point(i, j));
+                    }
+                }
+            }
+        }
+        else if(color == Stone.white) {
+            for(int i = 0; i < 8; i++) {
+                for(int j = 0; j < 8; j++) {
+                    if(bd.eval_white[i][j] > 0) {
+                        return (new Point(i, j));
+                    }
+                }
+            }
+        }
+        /* 配置可能な場所がない場合 */
+        return (new Point(-1, -1));
+    }
+
+    Point nextMove(Board bd, Point p) {
+        if(this.type == type_human) { return p; }
+        else if(this.type == type_computer) { return tactics(bd); }
+        /* 通常はあり得ない */
+        return (new Point(-1, -1));
+    }
+}
+
+
 class Stone {
     public final static int black = 1;
     public final static int white = 2;
@@ -55,10 +111,10 @@ class Board {
                 stone[i][j] = new Stone();
             }
         }
-        stone[3][3].setObverse(1);
-        stone[3][4].setObverse(2);
-        stone[4][3].setObverse(2);
-        stone[4][4].setObverse(1);
+        stone[3][3].setObverse(Stone.black);
+        stone[3][4].setObverse(Stone.white);
+        stone[4][3].setObverse(Stone.white);
+        stone[4][4].setObverse(Stone.black);
         /* 方向ベクトルの生成 */
         direction[0] = new Point(1, 0);
         direction[1] = new Point(1, 1);
@@ -70,7 +126,7 @@ class Board {
         direction[7] = new Point(1, -1);
         /* 盤面の初期評価 */
         evaluateBoard();
-        //printEval();
+        printEval();
     }
 
     void paint(Graphics g, int unit_size) {
@@ -100,7 +156,7 @@ class Board {
         for(int i = 0; i < 8; i++) {
             for(int j = 0; j < 8; j++) {
                 /* 中心 */
-                Point center = new Point((int)(unit_size*(j+1.5)), (int)(unit_size*(i+1.5)));
+                Point center = new Point((int)(unit_size*(i+1.5)), (int)(unit_size*(j+1.5)));
                 /* 半径 */
                 int radius = (int)(unit_size*0.5*0.8);
                 stone[i][j].paint(g, center, radius);
@@ -164,9 +220,9 @@ class Board {
         num_grid_white = 0;
         for(int i = 0; i < 8; i++) {
             for(int j = 0; j < 8; j++) {
-                eval_black[i][j] = countReverseStone(i, j, 1);
+                eval_black[i][j] = countReverseStone(i, j, Stone.black);
                 if(eval_black[i][j] > 0) { num_grid_black++; }
-                eval_white[i][j] = countReverseStone(i, j, 2);
+                eval_white[i][j] = countReverseStone(i, j, Stone.white);
                 if(eval_white[i][j] > 0) { num_grid_white++; }
             }
         }
@@ -177,7 +233,7 @@ class Board {
         System.out.println("Board:");
         for(int i = 0; i < 8; i++) {
             for(int j = 0; j < 8; j++) {
-                System.out.printf("%2d ", stone[i][j].getObverse());
+                System.out.printf("%2d ", stone[j][i].getObverse());
             }
             System.out.println();
         }
@@ -188,14 +244,14 @@ class Board {
         System.out.println("Black(1):");
         for(int i = 0; i < 8; i++) {
             for(int j = 0; j < 8; j++) {
-                System.out.printf("%2d ", eval_black[i][j]);
+                System.out.printf("%2d ", eval_black[j][i]);
             }
             System.out.println("");
         }
         System.out.println("White(2):");
         for(int i = 0; i < 8; i++) {
             for(int j = 0; j < 8; j++) {
-                System.out.printf("%2d ", eval_white[i][j]);
+                System.out.printf("%2d ", eval_white[j][i]);
             }
             System.out.println();
         }
@@ -220,6 +276,7 @@ class Board {
                 }
             }
         }
+        evaluateBoard();
     }
 }
 
@@ -228,20 +285,26 @@ public class Reversi extends JPanel{
     public final static int UNIT_SIZE = 80;
     private Board board = new Board();
     private int turn;
+    private Player[] player = new Player[2];
 
     public Reversi() {
         setPreferredSize(new Dimension(UNIT_SIZE*10, UNIT_SIZE*10));
         addMouseListener(new MouseProc());
-        turn = 1;
+        player[0] = new Player(Stone.black, Player.type_human);
+        player[1] = new Player(Stone.white, Player.type_computer);
+        turn = Stone.black;
     }
 
     public void paintComponent(Graphics g) {
-        board.paint(g, UNIT_SIZE);
-        g.setColor(Color.WHITE);
-        if(turn == 1) { g.drawString("黒の番です", 30, 30); }
-        else { g.drawString("白の番です", 30, 30); }
-        String str = "[黒:" + board.countStone(1) + ", 白:" + board.countStone(2) + "]";
-        g.drawString(str, 30, 770);
+        board.paint(g, UNIT_SIZE);   
+        String msg1 = "";
+        if(turn == Stone.black) { msg1 = "黒の番です"; }
+        else { msg1 = "白の番です"; }
+        if(player[turn-1].getType() == Player.type_computer) { msg1 += "(考えています)"; }
+        String msg2 = "[黒:" + board.countStone(Stone.black) + ", 白:" + board.countStone(Stone.white) + "]";
+        g.setColor(Color.white);
+        g.drawString(msg1, UNIT_SIZE/2, UNIT_SIZE/2);
+        g.drawString(msg2, UNIT_SIZE/2, 19*UNIT_SIZE/2);
     }
 
     public static void main(String[] args) {
@@ -256,8 +319,8 @@ public class Reversi extends JPanel{
 
     void EndMessageDialog() {
         String str;
-        int black = board.countStone(1);
-        int white = board.countStone(2);
+        int black = board.countStone(Stone.black);
+        int white = board.countStone(Stone.white);
         if(black > white) {
             str = "[黒:" + black + ",白:" + white + "]で黒の勝ち";
         }
@@ -276,46 +339,79 @@ public class Reversi extends JPanel{
     }
 
     void changeTurn() {
-        if(turn == 1) {
-            if(board.num_grid_white == 0) { MessageDialog("あなたはパスです"); }
-            else { turn = 2; }
-        }
-        else {
-            if(board.num_grid_black == 0) { MessageDialog("あなたはパスです"); }
-            else { turn = 1; }
-        }
+        if(turn == Stone.black) { turn = Stone.white; }
+        else { turn = Stone.black; }
     }
 
 
     class MouseProc extends MouseAdapter {
         public void mouseClicked(MouseEvent me) {
-            /* マス目を決定 */
             Point point = me.getPoint();
-            int x = point.x/UNIT_SIZE - 1;
-            int y = point.y/UNIT_SIZE - 1;
+            Point gp = new Point();
+            /* マス目を決定 */
+            gp.x = point.x/UNIT_SIZE - 1;
+            gp.y = point.y/UNIT_SIZE - 1;
             /* 盤面内か判定 */
-            if(board.isOnBoard(x, y)) {
-                /* 色を決定 */
-                int btn = me.getButton();
-                int s = -1;
-                if(btn == MouseEvent.BUTTON1 && board.eval_black[y][x] > 0 && turn == 1) { s = 1; }
-                else if(btn == MouseEvent.BUTTON3 && board.eval_white[y][x] > 0 && turn == 2) { s = 2; }
-                if(s == 1 || s == 2) {
-                    /* マス目に石を配置 */
-                    board.setStoneAndReverse(y, x, s);
-                    //board.printBoard();
-                    board.evaluateBoard();
-                    board.printEval();
+            if(!board.isOnBoard(gp.x, gp.y)) { return; }
+            /* 一時的にマウスイベントを止める */
+            removeMouseListener(this);
+            /* 人間の手番 */
+            if(player[turn-1].getType() == Player.type_human) {
+                if((player[turn-1].getColor() == Stone.black && board.num_grid_black == 0)
+                    || (player[turn-1].getColor() == Stone.white && board.num_grid_white == 0)) {
+                    MessageDialog("あなたはパスです");
+                    changeTurn();
                     repaint();
+                }
+                else if ((player[turn-1].getColor() == Stone.black && board.eval_black[gp.x][gp.y] > 0)
+                    || (player[turn-1].getColor() == Stone.white && board.eval_white[gp.x][gp.y] > 0)) {
+                    Point nm = player[turn-1].nextMove(board, gp);
+                    board.setStoneAndReverse(nm.x, nm.y, player[turn-1].getColor());
+                    changeTurn();
+                    repaint();
+                    board.printBoard();
+                    board.printEval();
                     /* 終了判定 */
                     if(board.num_grid_black == 0 && board.num_grid_white == 0) {
                         EndMessageDialog();
                     }
-                    /* 手番を交代 */
-                    else {
-                        changeTurn();
-                    }
                 }
+                /* 人間対人間 */
+                if(player[turn-1].getType() == Player.type_human) {
+                    addMouseListener(this);
+                }
+            }
+            /* コンピュータの手番 */
+            if(player[turn-1].getType() == Player.type_computer) {
+                Thread th = new TacticsThread();
+                th.start();
+            }
+        }
+    }
+
+
+    class TacticsThread extends Thread {
+        public void run() {
+            try {
+                Thread.sleep(2000);
+                Point nm = player[turn-1].nextMove(board, new Point(-1, -1));
+                if(nm.x == -1 && nm.y == -1) {
+                    MessageDialog("相手はパスです");
+                }
+                else {
+                    board.setStoneAndReverse(nm.x, nm.y, player[turn-1].getColor());
+                }
+                changeTurn();
+                repaint();
+                board.printBoard();
+                board.printEval();
+                addMouseListener(new MouseProc());
+                /* 終了判定 */
+                if(board.num_grid_black == 0 && board.num_grid_white == 0) {
+                    EndMessageDialog();
+                }
+            } catch(InterruptedException ie) {
+                ie.printStackTrace();
             }
         }
     }
