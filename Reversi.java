@@ -8,8 +8,9 @@ class Player {
     public final static int type_computer = 1;
     private int color;
     private int type;
+    private int cpu_tactics;
 
-    Player(int c, int t) {
+    Player(int c, int t, int tac) {
         if(c == Stone.black || c == Stone.white) { this.color = c; }
         else {
             System.out.println("プレイヤーの石は黒か白でなければいけません:" + c);
@@ -20,34 +21,192 @@ class Player {
             System.out.println("プレイヤーは人間かコンピュータでなければいけません:" + t);
             System.exit(0);
         }
+        if(tac == 1 || tac == 2 || tac == 3 || tac == 4) { this.cpu_tactics = tac; }
+        else {
+            System.out.println("CPUの戦略は[1, 2, 3, 4]から選んでください default=1:" + tac);
+            System.exit(0);
+        }
     }
 
     int getColor() { return color; }
 
     int getType() { return type; }
 
+    int getTactics() { return cpu_tactics; }
+
     Point tactics(Board bd) {
-        /* 左上優先の戦略 */
-        if(color == Stone.black) {
-            for(int i = 0; i < 8; i++) {
-                for(int j = 0; j < 8; j++) {
-                    if(bd.eval_black[i][j] > 0) {
-                        return (new Point(i, j));
+        switch(cpu_tactics) {
+            /* 左上優先の戦略 */
+            case 1:
+                if(color == Stone.black) {
+                    for(int i = 0; i < 8; i++) {
+                        for(int j = 0; j < 8; j++) {
+                            if(bd.eval_black[i][j] > 0) {
+                                return (new Point(i, j));
+                            }
+                        }
                     }
                 }
-            }
-        }
-        else if(color == Stone.white) {
-            for(int i = 0; i < 8; i++) {
-                for(int j = 0; j < 8; j++) {
-                    if(bd.eval_white[i][j] > 0) {
-                        return (new Point(i, j));
+                else if(color == Stone.white) {
+                    for(int i = 0; i < 8; i++) {
+                        for(int j = 0; j < 8; j++) {
+                            if(bd.eval_white[i][j] > 0) {
+                                return (new Point(i, j));
+                            }
+                        }
                     }
                 }
-            }
+                /* 配置可能な場所がない場合 */
+                return (new Point(-1, -1));
+            /* 配置できるマス目の中からランダムに選ぶ戦略 */
+            case 2:
+                Random random = new Random();
+                ArrayList<Point> allocatable = new ArrayList<Point>();
+                if(color == Stone.black) {
+                    for(int i = 0; i < 8; i++) {
+                        for(int j = 0; j < 8; j++) {
+                            if(bd.eval_black[i][j] > 0) {
+                                allocatable.add(new Point(i, j));
+                            }
+                        }
+                    }
+                }
+                else if(color == Stone.white) {
+                    for(int i = 0; i < 8; i++) {
+                        for(int j = 0; j < 8; j++) {
+                            if(bd.eval_white[i][j] > 0) {
+                                allocatable.add(new Point(i, j));
+                            }
+                        }
+                    }
+                }
+                /* 配置可能な場所がない場合 */
+                if(allocatable.isEmpty()) {
+                    return (new Point(-1, -1));
+                }
+                /* 配置可能な場所がある場合 */
+                else {
+                    return allocatable.get(random.nextInt(allocatable.size()));
+                }
+            /* ひっくり返せる石が最も多いマス目を選ぶ戦略 */
+            case 3:
+                Point gp = new Point(-1, -1);
+                int max_stone = 0;
+                if(color == Stone.black) {
+                    for(int i = 0; i < 8; i++) {
+                        for(int j = 0; j < 8; j++) {
+                            if(bd.eval_black[i][j] > max_stone) {
+                                gp = new Point(i, j);
+                                max_stone = bd.eval_black[i][j];
+                            }
+                        }
+                    }
+                }
+                else if(color == Stone.white) {
+                    for(int i = 0; i < 8; i++) {
+                        for(int j = 0; j < 8; j++) {
+                            if(bd.eval_white[i][j] > max_stone) {
+                                gp = new Point(i, j);
+                                max_stone = bd.eval_white[i][j];
+                            }
+                        }
+                    }
+                }
+                return gp;
+            /* 盤面の特性を考慮してマス目を選ぶ戦略 */
+            case 4:
+                gp = new Point(-1, -1);
+                max_stone = 0;
+                ArrayList<Point> corner = new ArrayList<Point>(
+                    Arrays.asList(new Point(0,0), new Point(0, 7), new Point(7, 0), new Point(7, 7))
+                );
+                if(color == Stone.black) {
+                    /* 角 */
+                    for(int i = 0; i < 4; i++) {
+                        int x = corner.get(i).x;
+                        int y = corner.get(i).y;
+                        if(bd.eval_black[x][y] > max_stone) {
+                            gp = new Point(x, y);
+                            max_stone = bd.eval_black[x][y];
+                        }
+                    }
+                    if(max_stone > 0) { return gp; }
+                    /* 端 */
+                    for(int i = 1; i < 7; i++) {
+                        if(bd.eval_black[0][i] > max_stone) {
+                            gp = new Point(0, i);
+                            max_stone = bd.eval_black[0][i];
+                        }
+                        if(bd.eval_black[i][0] > max_stone) {
+                            gp = new Point(i, 0);
+                            max_stone = bd.eval_black[i][0];
+                        }
+                        if(bd.eval_black[i][7] > max_stone) {
+                            gp = new Point(i, 7);
+                            max_stone = bd.eval_black[i][7];
+                        }
+                        if(bd.eval_black[7][i] > max_stone) {
+                            gp = new Point(7, i);
+                            max_stone = bd.eval_black[7][i];
+                        }
+                    }
+                    if(max_stone > 0) { return gp; }
+                    for(int i = 1; i < 7; i++) {
+                        for(int j = 1; j < 7; j++) {
+                            if(bd.eval_black[i][j] > max_stone) {
+                                gp = new Point(i, j);
+                                max_stone = bd.eval_black[i][j];
+                            }
+                        }
+                    }
+                }
+                else if(color == Stone.white) {
+                    /* 角 */
+                    for(int i = 0; i < 4; i++) {
+                        int x = corner.get(i).x;
+                        int y = corner.get(i).y;
+                        if(bd.eval_white[x][y] > max_stone) {
+                            gp = new Point(x, y);
+                            max_stone = bd.eval_white[x][y];
+                        }
+                    }
+                    if(max_stone > 0) { return gp; }
+                    /* 端 */
+                    for(int i = 1; i < 7; i++) {
+                        if(bd.eval_white[0][i] > max_stone) {
+                            gp = new Point(0, i);
+                            max_stone = bd.eval_white[0][i];
+                        }
+                        if(bd.eval_white[i][0] > max_stone) {
+                            gp = new Point(i, 0);
+                            max_stone = bd.eval_white[i][0];
+                        }
+                        if(bd.eval_white[i][7] > max_stone) {
+                            gp = new Point(i, 7);
+                            max_stone = bd.eval_white[i][7];
+                        }
+                        if(bd.eval_white[7][i] > max_stone) {
+                            gp = new Point(7, i);
+                            max_stone = bd.eval_white[7][i];
+                        }
+                    }
+                    if(max_stone > 0) { return gp; }
+                    for(int i = 1; i < 7; i++) {
+                        for(int j = 1; j < 7; j++) {
+                            if(bd.eval_white[i][j] > max_stone) {
+                                gp = new Point(i, j);
+                                max_stone = bd.eval_white[i][j];
+                            }
+                        }
+                    }
+                }
+                return gp;
+            /* 通常は入らない */
+            default:
+                return (new Point(-1, -1));
         }
-        /* 配置可能な場所がない場合 */
-        return (new Point(-1, -1));
+        
+        
     }
 
     Point nextMove(Board bd, Point p) {
@@ -287,11 +446,16 @@ public class Reversi extends JPanel{
     private int turn;
     private Player[] player = new Player[2];
 
-    public Reversi() {
+    public Reversi(String[] args) {
         setPreferredSize(new Dimension(UNIT_SIZE*10, UNIT_SIZE*10));
         addMouseListener(new MouseProc());
-        player[0] = new Player(Stone.black, Player.type_human);
-        player[1] = new Player(Stone.white, Player.type_computer);
+        player[0] = new Player(Stone.black, Player.type_computer, 4);
+        if(args.length == 1) {
+            player[1] = new Player(Stone.white, Player.type_computer, Integer.parseInt(args[0]));
+        }
+        else {
+            player[1] = new Player(Stone.white, Player.type_computer, 3);
+        }
         turn = Stone.black;
     }
 
@@ -310,7 +474,7 @@ public class Reversi extends JPanel{
     public static void main(String[] args) {
         JFrame f = new JFrame();
         f.getContentPane().setLayout(new FlowLayout());
-        f.getContentPane().add(new Reversi());
+        f.getContentPane().add(new Reversi(args));
         f.pack();
         f.setResizable(false);
         f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
